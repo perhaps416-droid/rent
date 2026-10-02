@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>房租管理</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f2f2f7"><link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--tx:#000;--sub:#6c6c70;--sep:#e5e5ea;--b:#007aff;--g:#34c759;--r:#ff3b30;--o:#ff9500;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--card:#1c1c1e;--tx:#fff;--sep:#38383a}}
+:root[data-theme="dark"]{--bg:#000;--card:#1c1c1e;--tx:#fff;--sep:#38383a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+input,select,textarea,button{font:inherit;color:inherit}
+header{display:flex;align-items:flex-end;justify-content:space-between;padding:18px 20px 8px}
+h1{font-size:34px;font-weight:700;margin:0;letter-spacing:-.5px}
+#mon{border:0;background:var(--card);border-radius:10px;padding:6px 10px;font-size:15px;color:var(--b)}
+.sum{display:flex;gap:10px;padding:6px 16px 4px}
+.sum div{flex:1;background:var(--card);border-radius:14px;padding:10px 6px;text-align:center;font-size:12px;color:var(--sub)}
+.sum b{display:block;font-size:22px;font-weight:600;color:var(--tx)}
+.grp{background:var(--card);border-radius:14px;margin:10px 16px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:.5px solid var(--sep)}
+.row:last-child{border:0}.row:active{background:var(--bg)}
+.m{flex:1;min-width:0}.m small,.r small{display:block;color:var(--sub);font-size:14px}
+.r{text-align:right}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--sub);flex:none}
+.dot.ok{background:var(--g)}.dot.due{background:var(--r)}
+.in{color:#248a3d}.out{color:#d70015}.warn{color:#c93400}
+.cta{display:block;width:calc(100% - 32px);margin:10px 16px;padding:14px;border:0;border-radius:14px;background:#0062cc;color:#fff;font-size:17px;font-weight:600}
+.cap{margin:16px 32px 0;font-size:13px;color:var(--sub);text-transform:none}
+.empty{text-align:center;color:var(--sub);padding:28px 0}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:.5px solid var(--sep);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;border:0;background:none;padding:12px 0;font-size:13px;color:var(--sub)}
+nav button.on{color:#0066d6;font-weight:600}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;z-index:9}
+.sheet{background:var(--bg);width:100%;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px))}
+.sheet:before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 6px}
+.sheet h3{text-align:center;margin:6px 0 4px;font-size:17px}
+.fr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:.5px solid var(--sep)}
+.fr:last-child{border:0}
+.fr label{width:84px;flex:none;color:var(--tx)}
+.fr input,.fr select{flex:1;min-width:0;border:0;background:none;text-align:right;outline:0;padding:0;color:var(--b)}
+.fr input[type=text],.fr input[type=tel]{color:var(--tx)}
+.seg{display:flex;background:var(--sep);border-radius:9px;padding:2px;margin:10px 16px}
+.seg span{flex:1;text-align:center;padding:6px;border-radius:7px;font-size:15px}
+.seg span.on{background:var(--card);font-weight:600}
+.btns{display:flex;gap:10px;padding:6px 16px}
+.btns button{flex:1;border:0;border-radius:12px;padding:13px;background:var(--card);color:var(--b);font-weight:600}
+.btns .p{background:var(--b);color:#fff}.btns .d{color:var(--r)}
+textarea{width:calc(100% - 32px);margin:8px 16px;border:0;border-radius:12px;padding:12px;background:var(--card);font-size:14px}
+</style></head><body>
+<header><h1 id="ttl"></h1><input type="month" id="mon"></header>
+<div id="app"></div>
+<nav id="nav"></nav>
+<script>
+const KEY="rent_v1",TABS=[["rooms","房间"],["tenants","租客"],["meter","抄表"],["book","账本"],["set","设置"]];
+const WAYS=["现金","微信","支付宝","银行转账"],ITEMS=["租金","水电费","押金","维修","其他"];
+let D={rooms:[],recs:[],meter:{},set:{wp:3,ep:1}},tab="rooms";
+const pad=n=>String(n).padStart(2,"0");
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())};
+let mon=today().slice(0,7);
+const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function load(){try{const s=localStorage.getItem(KEY);if(s)D=Object.assign(D,JSON.parse(s))}catch(e){}
+ D.meter=D.meter||{};D.set=D.set||{wp:3,ep:1};D.recs=D.recs||[];
+ if(!D.rooms||!D.rooms.length)D.rooms=Array.from({length:20},(_,i)=>({id:i+1,name:(i+1)+"号房",rent:0,tenant:"",phone:"",inDate:"",endDate:"",deposit:0}))}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){alert("保存失败，请先到设置里备份")}}
+const occ=r=>!!r.tenant;
+const paid=(id,m)=>D.recs.filter(r=>r.room===id&&r.month===m&&r.kind==="收"&&r.item==="租金").reduce((a,r)=>a+r.amt,0);
+const days=d=>Math.ceil((new Date(d)-new Date(today()))/864e5);
+const money=n=>(Math.round(n*100)/100);
+function render(){
+ $("#ttl").textContent=TABS.find(t=>t[0]===tab)[1];
+ $("#mon").style.display=["rooms","meter","book"].includes(tab)?"":"none";$("#mon").value=mon;
+ $("#nav").innerHTML=TABS.map(t=>`<button data-t="${t[0]}" class="${t[0]===tab?"on":""}">${t[1]}</button>`).join("");
+ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render();scrollTo(0,0)});
+ ({rooms,tenants,meter,book,set:sett})[tab]();
+}
+function rooms(){
+ let need=0,got=0,due=[];
+ D.rooms.forEach(r=>{if(occ(r)){need+=+r.rent;const p=paid(r.id,mon);got+=Math.min(p,r.rent);if(p<r.rent)due.push(r.name)}});
+ let h=`<div class="sum"><div>应收<b>${money(need)}</b></div><div>已收<b class="in">${money(got)}</b></div><div>未收<b class="out">${money(need-got)}</b></div></div>
+ <button class="cta" onclick="recEdit()">记一笔收租</button>`;
+ if(due.length)h+=`<div class="cap">本月未交 ${due.length} 间</div><div class="grp"><div class="row out">${esc(due.join("、"))}</div></div>`;
+ h+=`<div class="cap">全部房间</div><div class="grp">`+D.rooms.map(r=>{
+  let c="",t="空置";if(occ(r)){const ok=paid(r.id,mon)>=r.rent;c=ok?"ok":"due";t=ok?"已交":"未交"}
+  return `<div class="row" onclick="roomEdit(${r.id})"><i class="dot ${c}"></i><div class="m"><b>${esc(r.name)}</b><small>${occ(r)?esc(r.tenant):"点击登记租客"}</small></div><div class="r"><span class="${c==="ok"?"in":c==="due"?"out":""}">${t}</span><small>${occ(r)?"¥"+r.rent:""}</small></div></div>`}).join("")+"</div>";
+ $("#app").innerHTML=h;
+}
+function tenants(){
+ const L=D.rooms.filter(occ).sort((a,b)=>(a.endDate||"9").localeCompare(b.endDate||"9"));
+ const dep=L.reduce((a,r)=>a+ +r.deposit,0),soon=L.filter(r=>r.endDate&&days(r.endDate)<=30).length;
+ let h=`<div class="sum"><div>在租<b>${L.length}/${D.rooms.length}</b></div><div>30天内到期<b class="${soon?"warn":""}">${soon}</b></div><div>押金合计<b>${money(dep)}</b></div></div>`;
+ if(!L.length)h+=`<div class="empty">还没有租客，到“房间”里点房间登记</div>`;
+ else h+=`<div class="cap">按合同到期日排序</div><div class="grp">`+L.map(r=>{
+  let s="未填到期日",c="";if(r.endDate){const n=days(r.endDate);s=n<0?`已过期 ${-n} 天`:`还剩 ${n} 天`;c=n<=30?(n<0?"out":"warn"):""}
+  return `<div class="row" onclick="roomEdit(${r.id})"><div class="m"><b>${esc(r.tenant)}</b> · ${esc(r.name)}<small>${esc(r.phone||"未填电话")} · 月租 ¥${r.rent} · 押金 ¥${r.deposit}</small><small>${r.inDate||"-"} 至 ${r.endDate||"-"}</small></div><div class="r ${c}">${s}</div></div>`}).join("")+"</div>";
+ $("#app").innerHTML=h;
+}
+const mk=(id,m)=>id+"_"+m;
+function prev(id,m){let bm="",b=null;for(const k in D.meter){const[i,mm]=k.split("_");if(+i===id&&mm<m&&mm>bm){bm=mm;b=D.meter[k]}}return b?{w:b.w1,e:b.e1}:{w:0,e:0}}
+const cost=x=>money(Math.max(0,x.w1-x.w0)*D.set.wp+Math.max(0,x.e1-x.e0)*D.set.ep);
+function meter(){
+ const L=D.rooms.filter(occ);let tot=0,n=0;
+ const rows=L.map(r=>{const x=D.meter[mk(r.id,mon)];if(x){tot+=cost(x);n++}
+  return `<div class="row" onclick="meterEdit(${r.id})"><div class="m"><b>${esc(r.name)}</b><small>${esc(r.tenant)}</small></div><div class="r">${x?`<b>¥${cost(x)}</b><small>水${money(x.w1-x.w0)} 电${money(x.e1-x.e0)}</small>`:`<span class="warn">未抄表</span>`}</div></div>`}).join("");
+ $("#app").innerHTML=`<div class="sum"><div>已抄<b>${n}/${L.length}</b></div><div>水电合计<b>¥${money(tot)}</b></div></div>`+(L.length?`<div class="cap">点房间填写本月读数 · 水 ¥${D.set.wp}/吨 · 电 ¥${D.set.ep}/度</div><div class="grp">${rows}</div>`:`<div class="empty">没有在租房间</div>`);
+}
+function meterEdit(id){
+ const r=D.rooms.find(x=>x.id===id),x=D.meter[mk(id,mon)]||(()=>{const p=prev(id,mon);return{w0:p.w,w1:"",e0:p.e,e1:""}})();
+ modal(`<h3>${esc(r.name)} · ${mon} 抄表</h3>
+ <div class="cap">水表（吨）</div><div class="grp"><div class="fr"><label>上次读数</label><input id="w0" type="number" value="${x.w0}" oninput="calc()"></div><div class="fr"><label>本次读数</label><input id="w1" type="number" value="${x.w1}" oninput="calc()"></div></div>
+ <div class="cap">电表（度）</div><div class="grp"><div class="fr"><label>上次读数</label><input id="e0" type="number" value="${x.e0}" oninput="calc()"></div><div class="fr"><label>本次读数</label><input id="e1" type="number" value="${x.e1}" oninput="calc()"></div></div>
+ <div class="grp"><div class="fr"><label>本月水电费</label><b id="tot" style="flex:1;text-align:right"></b></div></div>
+ <div class="btns"><button onclick="saveMeter(${id},0)">仅保存</button><button class="p" onclick="saveMeter(${id},1)">保存并收款</button></div>`);calc();
+}
+function rd(){return{w0:+$("#w0").value||0,w1:+$("#w1").value||0,e0:+$("#e0").value||0,e1:+$("#e1").value||0}}
+function calc(){$("#tot").textContent="¥"+cost(rd())}
+function saveMeter(id,pay){const x=rd();if($("#w1").value===""&&$("#e1").value===""){alert("请填写本次读数");return}
+ if(x.w1<x.w0||x.e1<x.e0){alert("本次读数不能小于上次读数");return}
+ D.meter[mk(id,mon)]=x;save();closeM();render();
+ if(pay)recEdit(null,id,{item:"水电费",amt:cost(x),note:`水${x.w0}→${x.w1} 电${x.e0}→${x.e1}`,date:today()})}
+function book(){
+ const L=D.recs.filter(r=>r.month===mon).sort((a,b)=>b.date.localeCompare(a.date));
+ const i=L.filter(r=>r.kind==="收").reduce((a,r)=>a+r.amt,0),o=L.filter(r=>r.kind==="支").reduce((a,r)=>a+r.amt,0);
+ $("#app").innerHTML=`<div class="sum"><div>收入<b class="in">${money(i)}</b></div><div>支出<b class="out">${money(o)}</b></div><div>结余<b>${money(i-o)}</b></div></div><button class="cta" onclick="recEdit()">记一笔</button>`+
+ (L.length?`<div class="grp">`+L.map(r=>{const rm=D.rooms.find(x=>x.id===r.room);
+  return `<div class="row" onclick="recEdit('${r.id}')"><div class="m"><b>${esc(r.item)}</b>${rm?" · "+esc(rm.name):""}<small>${r.date} · ${esc(r.way||"")} ${esc(r.note||"")}</small></div><b class="${r.kind==="收"?"in":"out"}">${r.kind==="收"?"+":"-"}${money(r.amt)}</b></div>`}).join("")+"</div>":`<div class="empty">本月还没有记录</div>`);
+}
+function modal(h){const m=document.createElement("div");m.className="mask";m.innerHTML=`<div class="sheet">${h}</div>`;m.onclick=e=>{if(e.target===m)m.remove()};document.body.appendChild(m)}
+function closeM(){document.querySelector(".mask")?.remove()}
+function roomEdit(id){const r=D.rooms.find(x=>x.id===id);
+ modal(`<h3>${esc(r.name)}</h3><div class="grp">
+ <div class="fr"><label>房间名</label><input type="text" id="f_name" value="${esc(r.name)}"></div>
+ <div class="fr"><label>租客姓名</label><input type="text" id="f_tenant" placeholder="留空=空置" value="${esc(r.tenant)}"></div>
+ <div class="fr"><label>电话</label><input type="tel" id="f_phone" value="${esc(r.phone)}"></div>
+ <div class="fr"><label>月租(元)</label><input type="number" id="f_rent" value="${r.rent}"></div>
+ <div class="fr"><label>押金(元)</label><input type="number" id="f_dep" value="${r.deposit}"></div>
+ <div class="fr"><label>入住日期</label><input type="date" id="f_in" value="${r.inDate}"></div>
+ <div class="fr"><label>合同到期</label><input type="date" id="f_end" value="${r.endDate}"></div></div>
+ <div class="btns"><button class="p" onclick="saveRoom(${id})">保存</button></div>
+ <div class="btns"><button onclick="recEdit(null,${id})">记收款</button>${occ(r)?`<button onclick="closeM();meterEdit(${id})">抄表</button><button class="d" onclick="checkout(${id})">退租</button>`:""}</div>`)}
+function saveRoom(id){const r=D.rooms.find(x=>x.id===id);
+ r.name=$("#f_name").value.trim()||r.name;r.tenant=$("#f_tenant").value.trim();r.phone=$("#f_phone").value.trim();
+ r.rent=+$("#f_rent").value||0;r.deposit=+$("#f_dep").value||0;r.inDate=$("#f_in").value;r.endDate=$("#f_end").value;save();closeM();render()}
+function checkout(id){if(!confirm("确定退租？租客信息将清空，账目保留。"))return;
+ const r=D.rooms.find(x=>x.id===id);r.tenant=r.phone=r.inDate=r.endDate="";r.deposit=0;save();closeM();render()}
+let K="收";
+function recEdit(rid,room,pre){
+ const r=rid?D.recs.find(x=>x.id===rid):Object.assign({kind:"收",item:"租金",room:room||"",amt:"",date:today(),way:"微信",note:""},pre||{});
+ if(!rid&&room&&!(pre&&pre.amt)){const rm=D.rooms.find(x=>x.id===room);r.amt=Math.max(0,rm.rent-paid(room,mon))||rm.rent}
+ K=r.kind;closeM();
+ const sel=(a,v)=>a.map(i=>`<option ${i===v?"selected":""}>${i}</option>`).join("");
+ modal(`<h3>${rid?"修改账目":"记一笔"}</h3>
+ <div class="seg" id="seg"><span class="${K==="收"?"on":""}" onclick="setK('收')">收入</span><span class="${K==="支"?"on":""}" onclick="setK('支')">支出</span></div>
+ <div class="grp"><div class="fr"><label>项目</label><select id="r_item">${sel(ITEMS,r.item)}</select></div>
+ <div class="fr"><label>房间</label><select id="r_room"><option value="">不选</option>${D.rooms.map(x=>`<option value="${x.id}" ${x.id===r.room?"selected":""}>${esc(x.name)}${x.tenant?" "+esc(x.tenant):""}</option>`).join("")}</select></div>
+ <div class="fr"><label>金额(元)</label><input type="number" id="r_amt" value="${r.amt}"></div>
+ <div class="fr"><label>收款方式</label><select id="r_way">${sel(WAYS,r.way||"微信")}</select></div>
+ <div class="fr"><label>日期</label><input type="date" id="r_date" value="${r.date}"></div>
+ <div class="fr"><label>备注</label><input type="text" id="r_note" value="${esc(r.note)}"></div></div>
+ <div class="btns"><button class="p" onclick="saveRec('${rid||""}')">保存</button>${rid?`<button class="d" onclick="delRec('${rid}')">删除</button>`:""}</div>`)}
+function setK(k){K=k;document.querySelectorAll("#seg span").forEach(s=>s.classList.toggle("on",s.textContent==={收:"收入",支:"支出"}[k]))}
+function saveRec(rid){const amt=+$("#r_amt").value;if(!amt||amt<=0){alert("请填写金额");return}
+ const date=$("#r_date").value||today();
+ const o={id:rid||String(Date.now()),kind:K,item:$("#r_item").value,room:+$("#r_room").value||"",amt,way:$("#r_way").value,date,month:date.slice(0,7),note:$("#r_note").value.trim()};
+ if(rid)D.recs[D.recs.findIndex(x=>x.id===rid)]=o;else D.recs.push(o);save();closeM();render()}
+function delRec(rid){if(!confirm("删除这条账目？"))return;D.recs=D.recs.filter(x=>x.id!==rid);save();closeM();render()}
+function sett(){
+ $("#app").innerHTML=`<div class="cap">水电单价</div><div class="grp"><div class="fr"><label>水费 元/吨</label><input type="number" id="wp" value="${D.set.wp}" onchange="sp()"></div><div class="fr"><label>电费 元/度</label><input type="number" id="ep" value="${D.set.ep}" onchange="sp()"></div></div>
+ <div class="cap">数据备份（数据只存在这部手机里，换机或清理浏览器前请备份）</div>
+ <div class="btns" style="margin-top:8px"><button onclick="exp()">生成备份</button><button onclick="imp()">从备份恢复</button></div>
+ <textarea id="bk" rows="5" placeholder="备份文本显示在这里；恢复时把备份粘贴到这里"></textarea>
+ <div class="cap">绿点=本月租金已交，红点=未交。点房间可登记租客、记收款、抄表。</div>`}
+function sp(){D.set.wp=+$("#wp").value||0;D.set.ep=+$("#ep").value||0;save()}
+function exp(){const t=$("#bk");t.value=JSON.stringify(D);t.select();try{document.execCommand("copy");alert("已复制，请粘贴到微信文件传输助手或备忘录保存")}catch(e){}}
+function imp(){try{const d=JSON.parse($("#bk").value);if(!d.rooms||!d.recs)throw 0;if(!confirm("将覆盖当前数据，确定？"))return;D=d;load();save();tab="rooms";render()}catch(e){alert("备份内容无效")}}
+$("#mon").onchange=e=>{mon=e.target.value||mon;render()};
+load();render();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script></body></html>
